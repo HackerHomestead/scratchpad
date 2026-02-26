@@ -1,9 +1,12 @@
 package com.example.scratchpad
 
 import android.content.Context
+import android.graphics.Typeface
+import android.text.Editable
+import android.text.TextWatcher
+import android.widget.EditText
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,11 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,19 +63,38 @@ fun NotepadScreen() {
         },
         containerColor = Color.Black
     ) { innerPadding ->
-        BasicTextField(
-            value = text,
-            onValueChange = { text = it },
+        AndroidView(
+            factory = { ctx ->
+                EditText(ctx).apply {
+                    setText(text)
+                    setTextColor(Color.Green.toArgb())
+                    setBackgroundColor(Color.Black.toArgb())
+                    textSize = 16f
+                    typeface = Typeface.MONOSPACE
+                    setHintTextColor(Color.Green.toArgb())
+                    hint = "> Start typing..."
+                    setPadding(0, 16, 16, 16)
+                    setOnScrollChangeListener { _, _, scrollY, _, _ -> }
+                    addTextChangedListener(object : TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                        override fun afterTextChanged(s: Editable?) {
+                            text = s?.toString() ?: ""
+                        }
+                    })
+                }
+            },
+            update = { editText ->
+                if (editText.text.toString() != text) {
+                    val selection = editText.selectionStart
+                    editText.setText(text)
+                    editText.setSelection(selection.coerceIn(0, text.length))
+                }
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 16.sp,
-                color = Color.Green
-            ),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.Green)
+                .padding(horizontal = 16.dp)
         )
     }
 }
