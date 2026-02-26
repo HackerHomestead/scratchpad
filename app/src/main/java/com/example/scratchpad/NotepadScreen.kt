@@ -1,14 +1,21 @@
 package com.example.scratchpad
 
 import android.content.Context
+import android.graphics.Typeface
+import android.text.Editable
+import android.text.TextWatcher
+import android.text.method.PasswordTransformationMethod
+import android.view.View
+import android.widget.EditText
+import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -24,13 +31,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 private val fonts = listOf("Mono", "Default", "Serif", "Sans")
@@ -184,35 +193,51 @@ fun NotepadScreen() {
                     .fillMaxSize()
                     .background(Color.Black)
                     .padding(innerPadding)
-                    .padding(horizontal = 16.dp)
-                    .imePadding()
-                    .verticalScroll(scrollState)
-            ) {
-                Box(modifier = Modifier.padding(top = 16.dp, bottom = 16.dp)) {
-                    if (text.isEmpty()) {
-                        Text(
-                            text = "> Start typing...",
-                            style = TextStyle(
-                                fontFamily = fontFamilies[fontIndex],
-                                fontSize = textSizeValues[sizeIndex].sp,
-                                color = Color.Green
-                            )
+                    .padding(16.dp)
+                    .drawBehind {
+                        drawRect(
+                            color = Color.Green,
+                            size = this.size
                         )
                     }
-                    
-                    BasicTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = TextStyle(
-                            fontFamily = fontFamilies[fontIndex],
-                            fontSize = textSizeValues[sizeIndex].sp,
-                            color = Color.White
-                        ),
-                        cursorBrush = SolidColor(Color.Green),
-                        decorationBox = { innerTextField -> innerTextField() }
-                    )
-                }
+                    .padding(2.dp)
+                    .background(Color.Black)
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        EditText(ctx).apply {
+                            setText(text)
+                            setTextColor(Color.White.toArgb())
+                            setBackgroundColor(Color.Black.toArgb())
+                            textSize = textSizeValues[sizeIndex].toFloat()
+                            typeface = fontFamilies[fontIndex]
+                            setHintTextColor(Color.Green.toArgb())
+                            hint = "> Start typing..."
+                            setPadding(24, 16, 24, 16)
+                            isSingleLine = false
+                            setHorizontallyScrolling(false)
+                            transformationMethod = null
+                            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                            addTextChangedListener(object : TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: Editable?) {
+                                    text = s?.toString() ?: ""
+                                }
+                            })
+                        }
+                    },
+                    update = { editText ->
+                        if (editText.text.toString() != text) {
+                            val selection = editText.selectionStart
+                            editText.setText(text)
+                            editText.setSelection(selection.coerceIn(0, text.length))
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                )
             }
         }
     }
