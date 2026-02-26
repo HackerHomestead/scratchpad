@@ -42,11 +42,17 @@ private val textSizeValues = listOf(12, 16, 20, 24)
 
 private val bootMessages = listOf(
     "ATZ",
-    "ATDT 2400",
-    "CONNECT 2400",
+    "ATDT 618-781-8424",
+    "CONNECT",
     "CARRIER 2400",
-    "PROTOCOL: NONE",
+    "PROTOCOL: FUNK",
     "TERM> "
+)
+
+private val loadMessages = listOf(
+    "LOADING FILE...",
+    "READING SECTOR",
+    "LOAD COMPLETE"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +62,7 @@ fun NotepadScreen() {
     val prefs = context.getSharedPreferences("notepad", Context.MODE_PRIVATE)
 
     var showLoading by remember { mutableStateOf(true) }
+    var showContentLoading by remember { mutableStateOf(true) }
     var loadingText by remember { mutableStateOf("") }
     var lineIndex by remember { mutableStateOf(0) }
     var charIndex by remember { mutableStateOf(0) }
@@ -81,8 +88,29 @@ fun NotepadScreen() {
                 charIndex = 0
                 delay(200L)
             }
-            delay(500)
+            delay(300)
             showLoading = false
+            
+            loadingText = ""
+            lineIndex = 0
+            charIndex = 0
+            
+            while (lineIndex < loadMessages.size) {
+                val line = loadMessages[lineIndex]
+                while (charIndex < line.length) {
+                    loadingText += line[charIndex]
+                    charIndex++
+                    delay(3L)
+                }
+                if (lineIndex < loadMessages.size - 1) {
+                    loadingText += "\n"
+                }
+                lineIndex++
+                charIndex = 0
+                delay(150L)
+            }
+            delay(300)
+            showContentLoading = false
             text = prefs.getString("content", "") ?: ""
             originalText = text
         }
@@ -102,7 +130,7 @@ fun NotepadScreen() {
         }
     }
 
-    if (showLoading) {
+    if (showLoading || showContentLoading) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
