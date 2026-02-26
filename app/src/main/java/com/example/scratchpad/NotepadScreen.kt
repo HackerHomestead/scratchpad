@@ -37,6 +37,9 @@ private val fontFamilies = listOf(
     FontFamily.SansSerif
 )
 
+private val textSizes = listOf("S", "M", "L", "XL")
+private val textSizeValues = listOf(12, 16, 20, 24)
+
 private val bootMessages = listOf(
     "ATZ",
     "ATDT 2400",
@@ -60,6 +63,7 @@ fun NotepadScreen() {
     var originalText by remember { mutableStateOf("") }
     var saveStatus by remember { mutableStateOf("---") }
     var fontIndex by remember { mutableStateOf(0) }
+    var sizeIndex by remember { mutableStateOf(1) }
 
     LaunchedEffect(Unit) {
         if (showLoading) {
@@ -124,6 +128,12 @@ fun NotepadScreen() {
                         titleContentColor = Color.Green
                     ),
                     actions = {
+                        IconButton(onClick = { sizeIndex = (sizeIndex + 1) % textSizes.size }) {
+                            Text(
+                                text = textSizes[sizeIndex],
+                                color = Color.Green
+                            )
+                        }
                         IconButton(onClick = { fontIndex = (fontIndex + 1) % fonts.size }) {
                             Text(
                                 text = fonts[fontIndex],
@@ -144,13 +154,13 @@ fun NotepadScreen() {
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 textStyle = TextStyle(
                     fontFamily = fontFamilies[fontIndex],
-                    fontSize = 16.sp,
+                    fontSize = textSizeValues[sizeIndex].sp,
                     color = Color.White
                 ),
                 placeholder = { 
                     Text(
                         text = "> Start typing...",
-                        style = TextStyle(fontFamily = fontFamilies[fontIndex], color = Color.Green)
+                        style = TextStyle(fontFamily = fontFamilies[fontIndex], fontSize = textSizeValues[sizeIndex].sp, color = Color.Green)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
