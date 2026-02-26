@@ -1,13 +1,22 @@
 package com.example.scratchpad
 
+import android.content.ContentValues
 import android.content.Context
-import android.content.SharedPreferences
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -21,39 +30,45 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.edit
+import com.example.scratchpad.data.Note
+import com.example.scratchpad.data.NoteDao
 import kotlinx.coroutines.delay
-
-private val fonts = listOf("Mono", "Default", "Serif", "Sans")
-private val fontFamilies = listOf(
-    FontFamily.Monospace,
-    FontFamily.Default,
-    FontFamily.Serif,
-    FontFamily.SansSerif
-)
+import kotlinx.coroutines.launch
+import java.io.OutputStream
 
 private val textSizes = listOf("S", "M", "L", "XL")
 private val textSizeValues = listOf(12, 16, 20, 24)
 
 @Composable
-fun NotepadScreen() {
+fun NotepadScreen(
+    noteId: Long,
+    noteDao: NoteDao,
+    onNavigateBack: () -> Unit
+) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("notepad", Context.MODE_PRIVATE) }
-    var showBootAnimation by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
+    var showBootAnimation by remember { mutableStateOf(false) }
 
     if (showBootAnimation) {
         BootUpAnimation(onFinished = { showBootAnimation = false })
     } else {
-        NotepadContent(prefs)
+        NotepadContent(
+            noteId = noteId,
+            noteDao = noteDao,
+            onNavigateBack = onNavigateBack,
+            context = context
+        )
     }
 }
 
@@ -122,22 +137,101 @@ private fun BootUpAnimation(onFinished: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NotepadContent(prefs: SharedPreferences) {
-    var text by remember { mutableStateOf(prefs.getString("content", "") ?: "") }
-    var originalText by remember { mutableStateOf(text) }
+private fun NotepadContent(
+    noteId: Long,
+    noteDao: NoteDao,
+    onNavigateBack: () -> Unit,
+    context: Context
+) {
+    val coroutineScope = rememberCoroutineScope()
+    var note by remember { mutableStateOf<Note?>(null) }
+    var title by remember { mutableStateOf("") }
+    var content by remember { mutableStateOf("") }
+    var originalContent by remember { mutableStateOf("") }
+    var originalTitle by remember { mutableStateOf("") }
     var saveStatus by remember { mutableStateOf("---") }
-    var fontIndex by remember { mutableIntStateOf(0) }
     var sizeIndex by remember { mutableIntStateOf(1) }
+    var isTitleEditing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(text) {
-        if (text != originalText) {
+    LaunchedEffect(noteId) {
+        note = noteDao.getNoteById(noteId)
+        if (note == null) {
+            onNavigateBack()
+            return@LaunchedEffect
+        }
+        note?.let {
+            title = it.title
+            content = it.content
+            originalTitle = it.title
+            originalContent = it.content
+        }
+    }
+
+    fun saveNote() {
+        coroutineScope.launch {
+            note?.let { currentNote ->
+                val updatedNote = currentNote.copy(
+                    title = title,
+                    content = content,
+                    updatedAt = System.currentTimeMillis()
+                )
+                noteDao.updateNote(updatedNote)
+                note = updatedNote
+            }
+        }
+    }
+
+    LaunchedEffect(content, title) {
+        if (content != originalContent || title != originalTitle) {
             saveStatus = ">>>"
             delay(500)
-            prefs.edit { putString("content", text) }
-            originalText = text
+            saveNote()
+            originalContent = content
+            originalTitle = title
             saveStatus = "SAV"
             delay(1500)
-            if (text == originalText) {
+            if (content == originalContent && title == originalTitle) {
+                saveStatus = "---"
+            }
+        }
+    }
+
+    fun exportNote() {
+        coroutineScope.launch {
+            val fileName = "${title.ifEmpty { "Note_$noteId" }}.txt"
+            saveStatus = "EXP"
+
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    }
+
+                    val uri = context.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        contentValues
+                    )
+
+                    uri?.let {
+                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                            outputStream.write(content.toByteArray())
+                        }
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    val file = java.io.File(downloadsDir, fileName)
+                    file.writeText(content)
+                }
+                saveStatus = "EXP OK"
+            } catch (e: Exception) {
+                saveStatus = "EXP ER"
+            }
+
+            delay(1500)
+            if (content == originalContent && title == originalTitle) {
                 saveStatus = "---"
             }
         }
@@ -145,20 +239,72 @@ private fun NotepadContent(prefs: SharedPreferences) {
 
     Scaffold(
         topBar = {
-            NotepadTopAppBar(
-                saveStatus = saveStatus,
-                sizeIndex = sizeIndex,
-                fontIndex = fontIndex,
-                onSizeClick = { sizeIndex = (sizeIndex + 1) % textSizes.size },
-                onFontClick = { fontIndex = (fontIndex + 1) % fonts.size }
+            TopAppBar(
+                title = {
+                    if (isTitleEditing) {
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            textStyle = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 18.sp,
+                                color = Color.Green
+                            ),
+                            cursorBrush = SolidColor(Color.Green),
+                            modifier = Modifier
+                                .clickable { }
+                        )
+                    } else {
+                        Text(
+                            text = "[$title]",
+                            modifier = Modifier.clickable { isTitleEditing = true },
+                            color = Color.Green
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        saveNote()
+                        onNavigateBack()
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.Green
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.Green
+                ),
+                actions = {
+                    Text(
+                        text = saveStatus,
+                        color = Color.Green.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    IconButton(onClick = { sizeIndex = (sizeIndex + 1) % textSizes.size }) {
+                        Text(
+                            text = textSizes[sizeIndex],
+                            color = Color.Green
+                        )
+                    }
+                    IconButton(onClick = { exportNote() }) {
+                        Icon(
+                            imageVector = Icons.Filled.FileDownload,
+                            contentDescription = "Export",
+                            tint = Color.Green
+                        )
+                    }
+                }
             )
         },
         containerColor = Color.Black
     ) { innerPadding ->
         NotepadEditor(
-            text = text,
-            onTextChange = { text = it },
-            fontIndex = fontIndex,
+            text = content,
+            onTextChange = { content = it },
             sizeIndex = sizeIndex,
             modifier = Modifier
                 .fillMaxSize()
@@ -169,43 +315,10 @@ private fun NotepadContent(prefs: SharedPreferences) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NotepadTopAppBar(
-    saveStatus: String,
-    sizeIndex: Int,
-    fontIndex: Int,
-    onSizeClick: () -> Unit,
-    onFontClick: () -> Unit
-) {
-    TopAppBar(
-        title = { Text("Scratchpad  [$saveStatus]") },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Black,
-            titleContentColor = Color.Green
-        ),
-        actions = {
-            IconButton(onClick = onSizeClick) {
-                Text(
-                    text = textSizes[sizeIndex],
-                    color = Color.Green
-                )
-            }
-            IconButton(onClick = onFontClick) {
-                Text(
-                    text = fonts[fontIndex],
-                    color = Color.Green
-                )
-            }
-        }
-    )
-}
-
 @Composable
 private fun NotepadEditor(
     text: String,
     onTextChange: (String) -> Unit,
-    fontIndex: Int,
     sizeIndex: Int,
     modifier: Modifier = Modifier
 ) {
@@ -214,7 +327,7 @@ private fun NotepadEditor(
         onValueChange = onTextChange,
         modifier = modifier,
         textStyle = TextStyle(
-            fontFamily = fontFamilies[fontIndex],
+            fontFamily = FontFamily.Monospace,
             fontSize = textSizeValues[sizeIndex].sp,
             color = Color.White
         ),
@@ -222,7 +335,7 @@ private fun NotepadEditor(
             Text(
                 text = "> Start typing...",
                 style = TextStyle(
-                    fontFamily = fontFamilies[fontIndex],
+                    fontFamily = FontFamily.Monospace,
                     fontSize = textSizeValues[sizeIndex].sp,
                     color = Color.Green
                 )
