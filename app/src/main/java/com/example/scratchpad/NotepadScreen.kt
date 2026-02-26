@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -178,6 +179,7 @@ fun NotepadScreen() {
                 onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .padding(innerPadding)
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 textStyle = TextStyle(
