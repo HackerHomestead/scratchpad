@@ -1,11 +1,11 @@
 package com.example.scratchpad
 
 import android.content.Context
-import android.graphics.Typeface
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -36,16 +37,52 @@ private val fontFamilies = listOf(
     FontFamily.SansSerif
 )
 
+private val bootMessages = listOf(
+    "ATZ",
+    "ATDT 2400",
+    "CONNECT 2400",
+    "CARRIER 2400",
+    "PROTOCOL: NONE",
+    "TERM> "
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotepadScreen() {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("notepad", Context.MODE_PRIVATE)
 
-    var text by remember { mutableStateOf(prefs.getString("content", "") ?: "") }
-    var originalText by remember { mutableStateOf(text) }
+    var showLoading by remember { mutableStateOf(true) }
+    var loadingText by remember { mutableStateOf("") }
+    var lineIndex by remember { mutableStateOf(0) }
+    var charIndex by remember { mutableStateOf(0) }
+    var text by remember { mutableStateOf("") }
+    var originalText by remember { mutableStateOf("") }
     var saveStatus by remember { mutableStateOf("---") }
     var fontIndex by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        if (showLoading) {
+            while (lineIndex < bootMessages.size) {
+                val line = bootMessages[lineIndex]
+                while (charIndex < line.length) {
+                    loadingText += line[charIndex]
+                    charIndex++
+                    delay(4L)
+                }
+                if (lineIndex < bootMessages.size - 1) {
+                    loadingText += "\n"
+                }
+                lineIndex++
+                charIndex = 0
+                delay(200L)
+            }
+            delay(500)
+            showLoading = false
+            text = prefs.getString("content", "") ?: ""
+            originalText = text
+        }
+    }
 
     LaunchedEffect(text) {
         if (text != originalText) {
@@ -61,51 +98,69 @@ fun NotepadScreen() {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Scratchpad  [$saveStatus]") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black,
-                    titleContentColor = Color.Green
-                ),
-                actions = {
-                    IconButton(onClick = { fontIndex = (fontIndex + 1) % fonts.size }) {
-                        Text(
-                            text = fonts[fontIndex],
-                            color = Color.Green
-                        )
-                    }
-                }
-            )
-        },
-        containerColor = Color.Black
-    ) { innerPadding ->
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
+    if (showLoading) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            textStyle = TextStyle(
-                fontFamily = fontFamilies[fontIndex],
-                fontSize = 16.sp,
-                color = Color.White
-            ),
-            placeholder = { 
-                Text(
-                    text = "> Start typing...",
-                    style = TextStyle(fontFamily = fontFamilies[fontIndex], color = Color.Green)
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = loadingText,
+                style = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    color = Color.Green
+                )
+            )
+        }
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Scratchpad  [$saveStatus]") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black,
+                        titleContentColor = Color.Green
+                    ),
+                    actions = {
+                        IconButton(onClick = { fontIndex = (fontIndex + 1) % fonts.size }) {
+                            Text(
+                                text = fonts[fontIndex],
+                                color = Color.Green
+                            )
+                        }
+                    }
                 )
             },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Green,
-                unfocusedBorderColor = Color.Green,
-                cursorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+            containerColor = Color.Black
+        ) { innerPadding ->
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                textStyle = TextStyle(
+                    fontFamily = fontFamilies[fontIndex],
+                    fontSize = 16.sp,
+                    color = Color.White
+                ),
+                placeholder = { 
+                    Text(
+                        text = "> Start typing...",
+                        style = TextStyle(fontFamily = fontFamilies[fontIndex], color = Color.Green)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Green,
+                    unfocusedBorderColor = Color.Green,
+                    cursorColor = Color.Transparent,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                )
             )
-        )
+        }
     }
 }
