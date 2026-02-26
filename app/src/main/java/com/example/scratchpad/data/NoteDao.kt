@@ -39,4 +39,13 @@ interface NoteDao {
 
     @Query("SELECT COUNT(*) FROM notes WHERE deletedAt IS NOT NULL")
     suspend fun getTrashCount(): Int
+
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL")
+    suspend fun getAllNotesOnce(): List<Note>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(notes: List<Note>)
+
+    @Query("DELETE FROM notes WHERE deletedAt IS NULL")
+    suspend fun deleteAllNotes()
 }
