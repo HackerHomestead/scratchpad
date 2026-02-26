@@ -4,18 +4,13 @@ import android.content.Context
 import android.graphics.Typeface
 import android.text.Editable
 import android.text.TextWatcher
-import android.text.method.PasswordTransformationMethod
-import android.view.View
 import android.widget.EditText
-import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -43,11 +38,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 private val fonts = listOf("Mono", "Default", "Serif", "Sans")
-private val fontFamilies = listOf(
-    FontFamily.Monospace,
-    FontFamily.Default,
-    FontFamily.Serif,
-    FontFamily.SansSerif
+private val typefaces = listOf(
+    Typeface.MONOSPACE,
+    Typeface.DEFAULT,
+    Typeface.SERIF,
+    Typeface.SANS_SERIF
 )
 
 private val textSizes = listOf("S", "M", "L", "XL")
@@ -210,7 +205,7 @@ fun NotepadScreen() {
                             setTextColor(Color.White.toArgb())
                             setBackgroundColor(Color.Black.toArgb())
                             textSize = textSizeValues[sizeIndex].toFloat()
-                            typeface = fontFamilies[fontIndex]
+                            typeface = typefaces[fontIndex]
                             setHintTextColor(Color.Green.toArgb())
                             hint = "> Start typing..."
                             setPadding(24, 16, 24, 16)
