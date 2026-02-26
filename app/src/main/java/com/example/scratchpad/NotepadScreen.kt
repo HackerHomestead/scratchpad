@@ -4,12 +4,14 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -72,6 +75,8 @@ fun NotepadScreen() {
     var saveStatus by remember { mutableStateOf("---") }
     var fontIndex by remember { mutableStateOf(0) }
     var sizeIndex by remember { mutableStateOf(1) }
+
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         if (showLoading) {
@@ -174,33 +179,41 @@ fun NotepadScreen() {
             },
             containerColor = Color.Black
         ) { innerPadding ->
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding()
+                    .background(Color.Black)
                     .padding(innerPadding)
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                textStyle = TextStyle(
-                    fontFamily = fontFamilies[fontIndex],
-                    fontSize = textSizeValues[sizeIndex].sp,
-                    color = Color.White
-                ),
-                placeholder = { 
-                    Text(
-                        text = "> Start typing...",
-                        style = TextStyle(fontFamily = fontFamilies[fontIndex], fontSize = textSizeValues[sizeIndex].sp, color = Color.Green)
+                    .padding(horizontal = 16.dp)
+                    .imePadding()
+                    .verticalScroll(scrollState)
+            ) {
+                Box(modifier = Modifier.padding(top = 16.dp, bottom = 16.dp)) {
+                    if (text.isEmpty()) {
+                        Text(
+                            text = "> Start typing...",
+                            style = TextStyle(
+                                fontFamily = fontFamilies[fontIndex],
+                                fontSize = textSizeValues[sizeIndex].sp,
+                                color = Color.Green
+                            )
+                        )
+                    }
+                    
+                    BasicTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(
+                            fontFamily = fontFamilies[fontIndex],
+                            fontSize = textSizeValues[sizeIndex].sp,
+                            color = Color.White
+                        ),
+                        cursorBrush = SolidColor(Color.Green),
+                        decorationBox = { innerTextField -> innerTextField() }
                     )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Green,
-                    unfocusedBorderColor = Color.Green,
-                    cursorColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                )
-            )
+                }
+            }
         }
     }
 }
