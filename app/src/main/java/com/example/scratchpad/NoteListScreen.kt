@@ -15,6 +15,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +34,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,34 +61,51 @@ fun NoteListScreen(
     onNoteClick: (Long) -> Unit,
     onCreateNote: () -> Unit
 ) {
-    val notes by noteDao.getAllNotes().collectAsState(initial = emptyList())
+    var showTrash by remember { mutableStateOf(false) }
+    val notes by if (showTrash) {
+        noteDao.getTrashedNotes()
+    } else {
+        noteDao.getAllNotes()
+    }.collectAsState(initial = emptyList())
+
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scratchpad", color = Color.Green) },
+                title = { Text(if (showTrash) "Trash" else "Scratchpad", color = Color.Green) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Black,
                     titleContentColor = Color.Green
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { showTrash = !showTrash }) {
+                        Icon(
+                            imageVector = if (showTrash) Icons.Default.Shield else Icons.Default.Delete,
+                            contentDescription = if (showTrash) "Notes" else "Trash",
+                            tint = Color.Green
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    coroutineScope.launch {
-                        val count = noteDao.getNoteCount()
-                        val newNoteId = noteDao.insertNote(
-                            Note(title = "Note ${count + 1}")
-                        )
-                        onNoteClick(newNoteId)
-                    }
-                },
-                containerColor = Color.Green,
-                contentColor = Color.Black
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Note")
+            if (!showTrash) {
+                FloatingActionButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            val count = noteDao.getNoteCount()
+                            val newNoteId = noteDao.insertNote(
+                                Note(title = "Note ${count + 1}")
+                            )
+                            onNoteClick(newNoteId)
+                        }
+                    },
+                    containerColor = Color.Green,
+                    contentColor = Color.Black
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "New Note")
+                }
             }
         },
         containerColor = Color.Black
@@ -92,7 +118,7 @@ fun NoteListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No notes yet.\nTap + to create one.",
+                    text = if (showTrash) "Trash is empty" else "No notes yet.\nTap + to create one.",
                     style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 16.sp,
@@ -110,10 +136,20 @@ fun NoteListScreen(
                 items(notes, key = { it.id }) { note ->
                     NoteItem(
                         note = note,
+                        isTrash = showTrash,
                         onClick = { onNoteClick(note.id) },
                         onDelete = {
                             coroutineScope.launch {
-                                noteDao.deleteNote(note)
+                                if (showTrash) {
+                                    noteDao.deleteNote(note)
+                                } else {
+                                    noteDao.softDelete(note.id)
+                                }
+                            }
+                        },
+                        onRestore = {
+                            coroutineScope.launch {
+                                noteDao.restoreNote(note.id)
                             }
                         }
                     )
@@ -126,8 +162,10 @@ fun NoteListScreen(
 @Composable
 private fun NoteItem(
     note: Note,
+    isTrash: Boolean,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRestore: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -170,7 +208,7 @@ private fun NoteItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = formatDate(note.updatedAt),
+                    text = formatDate(if (isTrash) note.deletedAt ?: note.updatedAt else note.updatedAt),
                     style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
@@ -178,12 +216,29 @@ private fun NoteItem(
                     )
                 )
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Color.Green
-                )
+            if (isTrash) {
+                IconButton(onClick = onRestore) {
+                    Icon(
+                        imageVector = Icons.Default.RestoreFromTrash,
+                        contentDescription = "Restore",
+                        tint = Color.Green
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = "Delete Forever",
+                        tint = Color.Red
+                    )
+                }
+            } else {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.Green
+                    )
+                }
             }
         }
     }

@@ -9,5 +9,6 @@ data class Note(
     val id: Long = 0,
     val title: String = "Note",
     val content: String = "",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null
 )
