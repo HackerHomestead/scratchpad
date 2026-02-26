@@ -1,40 +1,51 @@
 package com.example.scratchpad
 
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.scratchpad.ui.theme.BbsGreenDark
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotepadScreen() {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("notepad", Context.MODE_PRIVATE)
-    val scope = rememberCoroutineScope()
 
     var text by remember { mutableStateOf(prefs.getString("content", "") ?: "") }
     var originalText by remember { mutableStateOf(text) }
     var saveStatus by remember { mutableStateOf("---") }
+
+    val lineCount = remember(text) { text.lines().size.coerceAtLeast(1) }
 
     LaunchedEffect(text) {
         if (text != originalText) {
@@ -53,24 +64,55 @@ fun NotepadScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scratchpad  [$saveStatus]") }
+                title = { Text("Scratchpad  [$saveStatus]") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.Green
+                )
             )
-        }
+        },
+        containerColor = Color.Black
     ) { innerPadding ->
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            OutlinedTextField(
+            Column(
+                modifier = Modifier
+                    .width(32.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .background(Color.Black)
+            ) {
+                for (i in 1..lineCount) {
+                    Text(
+                        text = i.toString().padStart(3),
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 16.sp,
+                            color = BbsGreenDark
+                        ),
+                        modifier = Modifier.padding(vertical = 1.dp)
+                    )
+                }
+            }
+
+            BasicTextField(
                 value = text,
                 onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace),
-                placeholder = { Text("> Start typing...") }
+                    .fillMaxHeight()
+                    .padding(start = 8.dp)
+                    .verticalScroll(rememberScrollState()),
+                textStyle = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    color = Color.Green
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.Green)
             )
         }
     }
