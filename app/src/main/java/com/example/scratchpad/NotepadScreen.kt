@@ -1,19 +1,16 @@
 package com.example.scratchpad
 
 import android.content.Context
-import android.graphics.Typeface
-import android.text.Editable
-import android.text.TextWatcher
-import android.widget.EditText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -26,23 +23,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 
 private val fonts = listOf("Mono", "Default", "Serif", "Sans")
-private val typefaces = listOf(
-    Typeface.MONOSPACE,
-    Typeface.DEFAULT,
-    Typeface.SERIF,
-    Typeface.SANS_SERIF
+private val fontFamilies = listOf(
+    FontFamily.Monospace,
+    FontFamily.Default,
+    FontFamily.Serif,
+    FontFamily.SansSerif
 )
 
 private val textSizes = listOf("S", "M", "L", "XL")
@@ -79,8 +73,6 @@ fun NotepadScreen() {
     var saveStatus by remember { mutableStateOf("---") }
     var fontIndex by remember { mutableStateOf(0) }
     var sizeIndex by remember { mutableStateOf(1) }
-
-    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         if (showLoading) {
@@ -183,57 +175,33 @@ fun NotepadScreen() {
             },
             containerColor = Color.Black
         ) { innerPadding ->
-            Box(
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
+                    .imePadding()
                     .padding(innerPadding)
-                    .padding(16.dp)
-                    .drawBehind {
-                        drawRect(
-                            color = Color.Green,
-                            size = this.size
-                        )
-                    }
-                    .padding(2.dp)
-                    .background(Color.Black)
-            ) {
-                AndroidView(
-                    factory = { ctx ->
-                        EditText(ctx).apply {
-                            setText(text)
-                            setTextColor(Color.White.toArgb())
-                            setBackgroundColor(Color.Black.toArgb())
-                            textSize = textSizeValues[sizeIndex].toFloat()
-                            typeface = typefaces[fontIndex]
-                            setHintTextColor(Color.Green.toArgb())
-                            hint = "> Start typing..."
-                            setPadding(24, 16, 24, 16)
-                            isSingleLine = false
-                            setHorizontallyScrolling(false)
-                            transformationMethod = null
-                            gravity = android.view.Gravity.TOP or android.view.Gravity.START
-                            addTextChangedListener(object : TextWatcher {
-                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                                override fun afterTextChanged(s: Editable?) {
-                                    text = s?.toString() ?: ""
-                                }
-                            })
-                        }
-                    },
-                    update = { editText ->
-                        if (editText.text.toString() != text) {
-                            val selection = editText.selectionStart
-                            editText.setText(text)
-                            editText.setSelection(selection.coerceIn(0, text.length))
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                textStyle = TextStyle(
+                    fontFamily = fontFamilies[fontIndex],
+                    fontSize = textSizeValues[sizeIndex].sp,
+                    color = Color.White
+                ),
+                placeholder = { 
+                    Text(
+                        text = "> Start typing...",
+                        style = TextStyle(fontFamily = fontFamilies[fontIndex], fontSize = textSizeValues[sizeIndex].sp, color = Color.Green)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Green,
+                    unfocusedBorderColor = Color.Green,
+                    cursorColor = Color.Transparent,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
-            }
+            )
         }
     }
 }
