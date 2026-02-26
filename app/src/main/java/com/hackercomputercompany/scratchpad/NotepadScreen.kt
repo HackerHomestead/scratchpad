@@ -66,73 +66,76 @@ fun NotepadScreen() {
     var isEditingTitle by remember { mutableStateOf(false) }
     var titleText by remember { mutableStateOf("") }
 
-    if (showBootAnimation) {
-        BootUpAnimation(onFinished = { showBootAnimation = false })
-    } else {
-        LaunchedEffect(Unit) {
-            val notes = repo.getAllNotes()
-            if (notes.isEmpty()) {
-                val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                val uniqueTitle = repo.generateUniqueTitle(dateStr)
-                val newId = repo.saveNote(Note(
-                    id = 0,
-                    title = uniqueTitle,
-                    content = "",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                ))
-                currentNoteId = newId
-                titleText = uniqueTitle
-            } else {
-                currentNoteId = notes.first().id
-                titleText = notes.first().title
-            }
+    LaunchedEffect(Unit) {
+        if (showBootAnimation) {
+            delay(2000)
+            showBootAnimation = false
         }
+        
+        val notes = repo.getAllNotes()
+        if (notes.isEmpty()) {
+            val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            val uniqueTitle = repo.generateUniqueTitle(dateStr)
+            val newId = repo.saveNote(Note(
+                id = 0,
+                title = uniqueTitle,
+                content = "",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            ))
+            currentNoteId = newId
+            titleText = uniqueTitle
+        } else {
+            currentNoteId = notes.first().id
+            titleText = notes.first().title
+        }
+    }
 
-        if (currentNoteId > 0) {
-            val note = repo.getNoteById(currentNoteId)
-            note?.let { n ->
-                NotepadContent(
-                    note = n,
-                    repo = repo,
-                    fontIndex = fontIndex,
-                    sizeIndex = sizeIndex,
-                    isEditingTitle = isEditingTitle,
-                    titleText = titleText,
-                    onTitleClick = { isEditingTitle = true },
-                    onTitleChange = { newTitle -> titleText = newTitle },
-                    onTitleConfirm = { newTitle ->
-                        repo.saveNote(n.copy(title = newTitle))
-                        titleText = newTitle
-                        isEditingTitle = false
-                    },
-                    onTitleCancel = {
-                        titleText = n.title
-                        isEditingTitle = false
-                    },
-                    onNewNote = {
-                        val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                        val uniqueTitle = repo.generateUniqueTitle(dateStr)
-                        val newId = repo.saveNote(Note(
-                            id = 0,
-                            title = uniqueTitle,
-                            content = "",
-                            createdAt = System.currentTimeMillis(),
-                            updatedAt = System.currentTimeMillis()
-                        ))
-                        currentNoteId = newId
-                        titleText = uniqueTitle
-                    },
-                    onSizeClick = { sizeIndex = (sizeIndex + 1) % textSizes.size },
-                    onFontClick = { fontIndex = (fontIndex + 1) % fonts.size }
-                )
-            }
+    if (showBootAnimation) {
+        BootUpAnimation()
+    } else if (currentNoteId > 0) {
+        val note = repo.getNoteById(currentNoteId)
+        note?.let { n ->
+            NotepadContent(
+                note = n,
+                repo = repo,
+                fontIndex = fontIndex,
+                sizeIndex = sizeIndex,
+                isEditingTitle = isEditingTitle,
+                titleText = titleText,
+                onTitleClick = { isEditingTitle = true },
+                onTitleChange = { newTitle -> titleText = newTitle },
+                onTitleConfirm = { newTitle ->
+                    repo.saveNote(n.copy(title = newTitle))
+                    titleText = newTitle
+                    isEditingTitle = false
+                },
+                onTitleCancel = {
+                    titleText = n.title
+                    isEditingTitle = false
+                },
+                onNewNote = {
+                    val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                    val uniqueTitle = repo.generateUniqueTitle(dateStr)
+                    val newId = repo.saveNote(Note(
+                        id = 0,
+                        title = uniqueTitle,
+                        content = "",
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                    currentNoteId = newId
+                    titleText = uniqueTitle
+                },
+                onSizeClick = { sizeIndex = (sizeIndex + 1) % textSizes.size },
+                onFontClick = { fontIndex = (fontIndex + 1) % fonts.size }
+            )
         }
     }
 }
 
 @Composable
-private fun BootUpAnimation(onFinished: () -> Unit) {
+private fun BootUpAnimation() {
     var loadingText by remember { mutableStateOf("") }
 
     val bootMessages = remember {
@@ -140,12 +143,7 @@ private fun BootUpAnimation(onFinished: () -> Unit) {
             "ATZ",
             "ATDT 618-781-8424",
             "CONNECT 2400",
-            "-= HACKER COMPUTER COMPANY =-"
-        )
-    }
-
-    val loadMessages = remember {
-        listOf(
+            "-= HACKER COMPUTER COMPANY =-",
             "LOADING FILE...",
             "READING SECTOR",
             "LOAD COMPLETE"
@@ -159,22 +157,8 @@ private fun BootUpAnimation(onFinished: () -> Unit) {
                 delay(4L)
             }
             loadingText += "\n"
-            delay(200L)
-        }
-        delay(300)
-
-        loadingText = ""
-
-        for (message in loadMessages) {
-            message.forEach { char ->
-                loadingText += char
-                delay(3L)
-            }
-            loadingText += "\n"
             delay(150L)
         }
-        delay(300)
-        onFinished()
     }
 
     Box(
