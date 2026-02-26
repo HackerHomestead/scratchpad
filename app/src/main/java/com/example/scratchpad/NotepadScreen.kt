@@ -2,7 +2,6 @@ package com.example.scratchpad
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.scratchpad.ui.theme.BbsGreenDark
@@ -45,7 +44,23 @@ fun NotepadScreen() {
     var originalText by remember { mutableStateOf(text) }
     var saveStatus by remember { mutableStateOf("---") }
 
-    val lineCount = remember(text) { text.lines().size.coerceAtLeast(1) }
+    val lines = remember(text) { text.split("\n") }
+    val lineData = remember(lines) {
+        lines.mapIndexed { index, line ->
+            if (line.isEmpty()) {
+                listOf("")
+            } else {
+                val charWidth = 8.5f
+                val maxChars = 40
+                val wrappedLines = (line.length / maxChars) + 1
+                (1..wrappedLines).map { wrapIndex ->
+                    if (wrapIndex == 1) (index + 1).toString() else "."
+                }
+            }
+        }.flatten()
+    }
+
+    val verticalScrollState = rememberScrollState()
 
     LaunchedEffect(text) {
         if (text != originalText) {
@@ -83,18 +98,21 @@ fun NotepadScreen() {
                 modifier = Modifier
                     .width(32.dp)
                     .fillMaxHeight()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(verticalScrollState)
                     .background(Color.Black)
             ) {
-                for (i in 1..lineCount) {
+                lineData.forEach { label ->
                     Text(
-                        text = i.toString().padStart(3),
+                        text = label.padStart(3),
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 16.sp,
-                            color = BbsGreenDark
+                            color = BbsGreenDark,
+                            textAlign = TextAlign.End
                         ),
-                        modifier = Modifier.padding(vertical = 1.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 4.dp)
                     )
                 }
             }
@@ -106,7 +124,7 @@ fun NotepadScreen() {
                     .fillMaxWidth()
                     .fillMaxHeight()
                     .padding(start = 8.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(verticalScrollState),
                 textStyle = TextStyle(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 16.sp,
