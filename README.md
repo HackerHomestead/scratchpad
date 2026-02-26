@@ -2,11 +2,14 @@
 
 A retro-style notepad app with 1980s BBS aesthetics.
 
+## Screenshot
+
+![Scratchpad on phone](phone-screenshot.png)
+
 ## Features
 
 - Dark theme with green-on-black terminal look
 - Auto-save functionality
-- Line numbers display
 
 ## Tech Stack
 
