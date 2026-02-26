@@ -1,4 +1,4 @@
-package com.example.scratchpad.ui.theme
+package com.hackercomputercompany.scratchpad.ui.theme
 
 import android.app.Activity
 import androidx.compose.material3.MaterialTheme
