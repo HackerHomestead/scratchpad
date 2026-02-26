@@ -17,7 +17,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -178,6 +181,8 @@ private fun NotepadContent(
     var showExportDialog by remember { mutableStateOf(false) }
     var exportFileName by remember { mutableStateOf("") }
     var titleError by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(noteId) {
         note = noteDao.getNoteById(noteId)
@@ -322,15 +327,37 @@ private fun NotepadContent(
                             color = Color.Green
                         )
                     }
-                    IconButton(onClick = { 
-                        exportFileName = if (title.isNotEmpty()) title else "NOTE"
-                        showExportDialog = true 
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.FileDownload,
-                            contentDescription = "Export",
-                            tint = Color.Green
-                        )
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "Menu",
+                                tint = Color.Green
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Export") },
+                                onClick = {
+                                    showMenu = false
+                                    exportFileName = if (title.isNotEmpty()) title else "NOTE"
+                                    showExportDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.FileDownload, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("About") },
+                                onClick = {
+                                    showMenu = false
+                                    showAboutDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -390,6 +417,30 @@ private fun NotepadContent(
             dismissButton = {
                 TextButton(onClick = { showExportDialog = false }) {
                     Text("Cancel", color = Color.Green)
+                }
+            },
+            containerColor = Color.Black,
+            titleContentColor = Color.Green,
+            textContentColor = Color.Green
+        )
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("-=Hacker Computer Company=-", color = Color.Green) },
+            text = {
+                Text(
+                    text = "Scratchpad v1.1\nA retro-style notepad",
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.Green
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) {
+                    Text("OK", color = Color.Green)
                 }
             },
             containerColor = Color.Black,
