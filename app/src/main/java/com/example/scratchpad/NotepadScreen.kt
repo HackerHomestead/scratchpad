@@ -8,13 +8,16 @@ import android.provider.MediaStore
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -45,10 +49,29 @@ import com.example.scratchpad.data.Note
 import com.example.scratchpad.data.NoteDao
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.io.OutputStream
 
 private val textSizes = listOf("S", "M", "L", "XL")
 private val textSizeValues = listOf(12, 16, 20, 24)
+
+private fun formatTitleTo83(input: String): String {
+    val sanitized = input.replace(Regex("[^a-zA-Z0-9\\-_#<>]"), "")
+    return when {
+        sanitized.length <= 8 -> sanitized
+        sanitized.contains(".") -> {
+            val parts = sanitized.split(".", limit = 2)
+            val name = parts[0].take(8)
+            val ext = parts.getOrElse(1) { "" }.take(3)
+            "$name.$ext"
+        }
+        else -> sanitized.take(8)
+    }
+}
+
+private fun isValid83Format(input: String): Boolean {
+    if (input.isEmpty()) return true
+    val pattern = Regex("^[a-zA-Z0-9\\-_#<>]{1,8}(\\.[a-zA-Z0-9\\-_#<>]{1,3})?$")
+    return pattern.matches(input)
+}
 
 @Composable
 fun NotepadScreen(
@@ -152,6 +175,9 @@ private fun NotepadContent(
     var saveStatus by remember { mutableStateOf("---") }
     var sizeIndex by remember { mutableIntStateOf(1) }
     var isTitleEditing by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportFileName by remember { mutableStateOf("") }
+    var titleError by remember { mutableStateOf(false) }
 
     LaunchedEffect(noteId) {
         note = noteDao.getNoteById(noteId)
@@ -196,9 +222,8 @@ private fun NotepadContent(
         }
     }
 
-    fun exportNote() {
+    fun exportNote(fileName: String) {
         coroutineScope.launch {
-            val fileName = "${title.ifEmpty { "Note_$noteId" }}.txt"
             saveStatus = "EXP"
 
             try {
@@ -244,20 +269,27 @@ private fun NotepadContent(
                     if (isTitleEditing) {
                         BasicTextField(
                             value = title,
-                            onValueChange = { title = it },
+                            onValueChange = { newValue ->
+                                val formatted = formatTitleTo83(newValue.uppercase())
+                                title = formatted
+                                titleError = !isValid83Format(formatted)
+                            },
                             textStyle = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 18.sp,
-                                color = Color.Green
+                                color = if (titleError) Color.Red else Color.Green
                             ),
-                            cursorBrush = SolidColor(Color.Green),
+                            cursorBrush = SolidColor(if (titleError) Color.Red else Color.Green),
                             modifier = Modifier
                                 .clickable { }
                         )
                     } else {
                         Text(
                             text = "[$title]",
-                            modifier = Modifier.clickable { isTitleEditing = true },
+                            modifier = Modifier.clickable { 
+                                titleError = false
+                                isTitleEditing = true 
+                            },
                             color = Color.Green
                         )
                     }
@@ -290,7 +322,10 @@ private fun NotepadContent(
                             color = Color.Green
                         )
                     }
-                    IconButton(onClick = { exportNote() }) {
+                    IconButton(onClick = { 
+                        exportFileName = if (title.isNotEmpty()) title else "NOTE"
+                        showExportDialog = true 
+                    }) {
                         Icon(
                             imageVector = Icons.Filled.FileDownload,
                             contentDescription = "Export",
@@ -311,6 +346,55 @@ private fun NotepadContent(
                 .imePadding()
                 .padding(innerPadding)
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+        )
+    }
+
+    if (showExportDialog) {
+        val fullPath = "Downloads/${exportFileName.ifEmpty { "NOTE" }}"
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("Export File") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = exportFileName,
+                        onValueChange = { exportFileName = formatTitleTo83(it.uppercase()) },
+                        label = { Text("File name (8.3 format)") },
+                        textStyle = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.Green
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = fullPath,
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = Color.Green.copy(alpha = 0.7f)
+                        ),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val fileName = if (exportFileName.contains(".")) exportFileName else "$exportFileName.txt"
+                    exportNote(fileName)
+                    showExportDialog = false
+                }) {
+                    Text("Export", color = Color.Green)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("Cancel", color = Color.Green)
+                }
+            },
+            containerColor = Color.Black,
+            titleContentColor = Color.Green,
+            textContentColor = Color.Green
         )
     }
 }
