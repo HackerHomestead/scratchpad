@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,8 +46,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?, noteDao: com.example.scratchpad.data.NoteDao) {
+        // Check for base64 data (ADB import)
+        val base64Data = intent?.getStringExtra("base64_data")
+        if (base64Data != null) {
+            handleBase64Import(base64Data, noteDao)
+            return
+        }
+        
         when (intent?.action) {
             "com.example.scratchpad.IMPORT" -> {
+                // For file URI imports (requires proper permissions)
                 intent.data?.let { uri ->
                     coroutineScope.launch {
                         try {
@@ -57,15 +64,15 @@ class MainActivity : ComponentActivity() {
                                     BufferedReader(stream.reader()).readText()
                                 }
                             }
-                            val notes = parseJsonNotes(json)
-                            noteDao.insertAll(notes)
-                            Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
+                            if (json != null) {
+                                val notes = parseJsonNotes(json)
+                                noteDao.insertAll(notes)
+                                Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
+                            }
                         } catch (e: Exception) {
                             Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
-                } ?: run {
-                    Toast.makeText(this, "No file specified for import", Toast.LENGTH_SHORT).show()
                 }
             }
             "com.example.scratchpad.EXPORT" -> {
@@ -134,6 +141,23 @@ class MainActivity : ComponentActivity() {
             jsonArray.put(obj)
         }
         return jsonArray.toString(2)
+    }
+
+    private fun handleBase64Import(base64Data: String, noteDao: com.example.scratchpad.data.NoteDao) {
+        coroutineScope.launch {
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                }
+                android.util.Log.d("SCRATCHPAD", "Decoded JSON, length: ${json.length}")
+                
+                val notes = parseJsonNotes(json)
+                noteDao.insertAll(notes)
+                Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private val coroutineScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Main)

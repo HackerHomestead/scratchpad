@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -53,6 +55,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".ImportReceiver"
+            android:exported="true"
+            android:permission="com.example.scratchpad.IMPORT_PERMISSION">
+            <intent-filter>
+                <action android:name="com.example.scratchpad.IMPORT_ACTION" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
