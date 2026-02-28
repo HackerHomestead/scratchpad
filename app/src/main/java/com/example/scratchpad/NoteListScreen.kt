@@ -1,6 +1,5 @@
 package com.example.scratchpad
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +17,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.RestoreFromTrash
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.RestoreFromTrash
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -170,26 +164,9 @@ fun NoteListScreen(
     }
 
     if (showAbout) {
-        AlertDialog(
-            onDismissRequest = { showAbout = false },
-            title = { Text("-=Hacker Computer Company=-", color = Color.Green) },
-            text = {
-                Text(
-                    text = "Scratchpad v1.1\nA retro-style notepad",
-                    style = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.Green
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showAbout = false }) {
-                    Text("OK", color = Color.Green)
-                }
-            },
-            containerColor = Color.Black,
-            titleContentColor = Color.Green,
-            textContentColor = Color.Green
+        AboutDialog(
+            version = Constants.VERSION_NAME,
+            onDismiss = { showAbout = false }
         )
     }
 }

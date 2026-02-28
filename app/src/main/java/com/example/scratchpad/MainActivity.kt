@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,9 +36,17 @@ import com.example.scratchpad.ui.theme.ScratchpadTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import java.io.BufferedReader
 
+/**
+ * Main entry point for the Scratchpad application.
+ * 
+ * Handles:
+ * - Navigation between note list and editor
+ * - Intent processing for ADB commands
+ * - Share intents from other apps
+ * 
+ * @see <a href="https://github.com/HackerHomestead/scratchpad">Project Documentation</a>
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,52 +71,67 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent, noteDao)
     }
 
+    /**
+     * Process incoming intents for ADB commands and share actions.
+     * 
+     * Supported intents:
+     * - ACTION_SEND: Share text from other apps
+     * - IMPORT: Import notes from JSON (via base64)
+     * - EXPORT: Export notes to Downloads
+     * - CLEAR: Delete all notes
+     * - LIST: List notes to logcat
+     * - ABOUT: Show about dialog
+     * 
+     * @param intent The incoming intent to process
+     * @param noteDao Database access object
+     */
     private fun handleIntent(intent: Intent?, noteDao: com.example.scratchpad.data.NoteDao) {
-        // Check for share intent
+        // Check for share intent (from other apps)
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
             if (!sharedText.isNullOrBlank()) {
-                handleShareIntent(sharedText, noteDao)
+                handleShareIntent(sharedText.take(Constants.Limits.MAX_CONTENT_LENGTH), noteDao)
                 return
             }
         }
         
         // Check for base64 data (ADB import)
-        val base64Data = intent?.getStringExtra("base64_data")
+        val base64Data = intent?.getStringExtra(Constants.Extras.BASE64_DATA)
         if (base64Data != null) {
             handleBase64Import(base64Data, noteDao)
             return
         }
         
         when (intent?.action) {
-            "com.example.scratchpad.IMPORT" -> {
+            Constants.Actions.IMPORT -> {
                 // For file URI imports (requires proper permissions)
                 intent.data?.let { uri ->
                     coroutineScope.launch {
                         try {
                             val json = withContext(Dispatchers.IO) {
                                 contentResolver.openInputStream(uri)?.use { stream ->
-                                    BufferedReader(stream.reader()).readText()
+                                    stream.bufferedReader().readText()
                                 }
                             }
                             if (json != null) {
-                                val notes = parseJsonNotes(json)
+                                val notes = JsonNoteUtils.parseJsonNotes(json)
                                 noteDao.insertAll(notes)
-                                Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
+                                showToast("Imported ${notes.size} notes")
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            android.util.Log.e("MainActivity", "Import failed", e)
+                            showToast("Import failed: ${e.message}")
                         }
                     }
                 }
             }
-            "com.example.scratchpad.EXPORT" -> {
+            Constants.Actions.EXPORT -> {
                 coroutineScope.launch {
                     try {
                         val notes = noteDao.getAllNotesOnce()
-                        val json = notesToJson(notes)
+                        val json = JsonNoteUtils.notesToJson(notes)
                         
-                        val fileName = "scratchpad_backup_${System.currentTimeMillis()}.json"
+                        val fileName = "${Constants.Files.BACKUP_PREFIX}${System.currentTimeMillis()}${Constants.Files.BACKUP_EXTENSION}"
                         
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             val contentValues = ContentValues().apply {
@@ -127,95 +149,86 @@ class MainActivity : ComponentActivity() {
                                 contentResolver.openOutputStream(it)?.use { outputStream ->
                                     outputStream.write(json.toByteArray())
                                 }
-                                Toast.makeText(this@MainActivity, "Backup saved: Downloads/$fileName", Toast.LENGTH_LONG).show()
+                                showToast("Backup saved: Downloads/$fileName")
                             } ?: run {
-                                Toast.makeText(this@MainActivity, "Backup failed", Toast.LENGTH_SHORT).show()
+                                showToast("Backup failed")
                             }
                         } else {
                             @Suppress("DEPRECATION")
                             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                             val file = java.io.File(downloadsDir, fileName)
                             file.writeText(json)
-                            Toast.makeText(this@MainActivity, "Backup saved: Downloads/$fileName", Toast.LENGTH_LONG).show()
+                            showToast("Backup saved: Downloads/$fileName")
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        android.util.Log.e("MainActivity", "Export failed", e)
+                        showToast("Export failed: ${e.message}")
                     }
                 }
             }
-            "com.example.scratchpad.CLEAR" -> {
+            Constants.Actions.CLEAR -> {
                 coroutineScope.launch {
                     try {
                         noteDao.deleteAllNotes()
-                        Toast.makeText(this@MainActivity, "All notes cleared", Toast.LENGTH_SHORT).show()
+                        showToast("All notes cleared")
                     } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "Clear failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        showToast("Clear failed: ${e.message}")
                     }
                 }
             }
-            "com.example.scratchpad.LIST" -> {
+            Constants.Actions.LIST -> {
                 coroutineScope.launch {
                     try {
                         val notes = noteDao.getAllNotesOnce()
                         val list = notes.joinToString("\n") { "${it.id}: ${it.title}" }
-                        Toast.makeText(this@MainActivity, "${notes.size} notes (see log)", Toast.LENGTH_SHORT).show()
+                        showToast("${notes.size} notes")
                         android.util.Log.d("SCRATCHPAD_LIST", list)
                     } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "List failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        showToast("List failed: ${e.message}")
                     }
                 }
             }
-            "com.example.scratchpad.ABOUT" -> {
-                Toast.makeText(this, "Scratchpad v1.1 - Hacker Computer Company", Toast.LENGTH_LONG).show()
+            Constants.Actions.ABOUT -> {
+                showAboutDialog()
             }
         }
     }
 
-    private fun parseJsonNotes(json: String): List<Note> {
-        val notes = mutableListOf<Note>()
-        val jsonArray = JSONArray(json)
-        for (i in 0 until jsonArray.length()) {
-            val obj = jsonArray.getJSONObject(i)
-            notes.add(
-                Note(
-                    title = obj.optString("title", "Imported"),
-                    content = obj.optString("content", ""),
-                    updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
-                )
-            )
+    /**
+     * Show toast message safely, handling case where toast system may be unavailable.
+     */
+    private fun showToast(message: String) {
+        try {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Toast failed: ${e.message}")
         }
-        return notes
     }
 
-    private fun notesToJson(notes: List<Note>): String {
-        val jsonArray = JSONArray()
-        notes.forEach { note ->
-            val obj = org.json.JSONObject()
-            obj.put("title", note.title)
-            obj.put("content", note.content)
-            obj.put("updatedAt", note.updatedAt)
-            jsonArray.put(obj)
-        }
-        return jsonArray.toString(2)
-    }
-
+    /**
+     * Handle import from base64-encoded JSON data.
+     */
     private fun handleBase64Import(base64Data: String, noteDao: com.example.scratchpad.data.NoteDao) {
         coroutineScope.launch {
             try {
                 val json = withContext(Dispatchers.IO) {
-                    android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT).toString(Charsets.UTF_8)
+                    JsonNoteUtils.decodeBase64(base64Data)
                 }
-                android.util.Log.d("SCRATCHPAD", "Decoded JSON, length: ${json.length}")
                 
-                val notes = parseJsonNotes(json)
+                val notes = JsonNoteUtils.parseJsonNotes(json)
                 noteDao.insertAll(notes)
-                Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
+                showToast("Imported ${notes.size} notes")
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("MainActivity", "Base64 import failed", e)
+                showToast("Import failed: ${e.message}")
             }
         }
     }
 
+    /**
+     * Handle share intent from another app.
+     * Shows dialog to set note title before saving.
+     */
     private fun handleShareIntent(sharedContent: String, noteDao: com.example.scratchpad.data.NoteDao) {
         coroutineScope.launch {
             try {
@@ -226,21 +239,24 @@ class MainActivity : ComponentActivity() {
                     showTitleDialog(defaultTitle) { title ->
                         coroutineScope.launch {
                             val newNote = Note(
-                                title = title.ifBlank { defaultTitle },
+                                title = title.ifBlank { defaultTitle }.take(Constants.Limits.MAX_TITLE_LENGTH),
                                 content = sharedContent,
                                 updatedAt = System.currentTimeMillis()
                             )
                             noteDao.insertNote(newNote)
-                            Toast.makeText(this@MainActivity, "Note saved: $title", Toast.LENGTH_SHORT).show()
+                            showToast("Note saved: ${newNote.title}")
                         }
                     }
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+                showToast("Failed to save: ${e.message}")
             }
         }
     }
 
+    /**
+     * Show dialog for entering note title during share operation.
+     */
     private fun showTitleDialog(defaultTitle: String, onTitleSelected: (String) -> Unit) {
         var title by mutableStateOf(defaultTitle)
         
@@ -257,7 +273,7 @@ class MainActivity : ComponentActivity() {
                             )
                             OutlinedTextField(
                                 value = title,
-                                onValueChange = { title = it.uppercase() },
+                                onValueChange = { title = it.uppercase().take(Constants.Limits.MAX_TITLE_LENGTH) },
                                 textStyle = TextStyle(
                                     fontFamily = FontFamily.Monospace,
                                     color = Color.Green
@@ -280,9 +296,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Show the about dialog.
+     */
+    private fun showAboutDialog() {
+        setContent {
+            ScratchpadTheme {
+                AboutDialog(
+                    version = Constants.VERSION_NAME,
+                    onDismiss = { }
+                )
+            }
+        }
+    }
+
     private val coroutineScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Main)
 }
 
+/**
+ * Main navigation composable for the app.
+ * 
+ * Routes:
+ * - noteList: List of all notes
+ * - noteEditor/{noteId}: Edit a specific note
+ * 
+ * @param noteDao Database access object
+ */
 @Composable
 fun ScratchpadApp(noteDao: com.example.scratchpad.data.NoteDao) {
     val navController = rememberNavController()

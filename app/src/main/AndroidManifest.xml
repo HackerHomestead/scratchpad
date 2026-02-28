@@ -26,30 +26,35 @@
             </intent-filter>
 
             <!-- ADB Command: Import notes from JSON file -->
+            <!-- See Constants.kt Actions.IMPORT for the intent name -->
             <intent-filter>
                 <action android:name="com.example.scratchpad.IMPORT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- ADB Command: Export all notes to JSON -->
+            <!-- See Constants.kt Actions.EXPORT for the intent name -->
             <intent-filter>
                 <action android:name="com.example.scratchpad.EXPORT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- ADB Command: Clear all notes -->
+            <!-- See Constants.kt Actions.CLEAR for the intent name -->
             <intent-filter>
                 <action android:name="com.example.scratchpad.CLEAR" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- ADB Command: Show about dialog -->
+            <!-- See Constants.kt Actions.ABOUT for the intent name -->
             <intent-filter>
                 <action android:name="com.example.scratchpad.ABOUT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- ADB Command: List all notes -->
+            <!-- See Constants.kt Actions.LIST for the intent name -->
             <intent-filter>
                 <action android:name="com.example.scratchpad.LIST" />
                 <category android:name="android.intent.category.DEFAULT" />
