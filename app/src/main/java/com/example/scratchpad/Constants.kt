@@ -26,7 +26,7 @@ object Constants {
     }
     
     // App metadata
-    const val VERSION_NAME = "1.1"
+    const val VERSION_NAME = "1.2"
     
     // Limits
     object Limits {
