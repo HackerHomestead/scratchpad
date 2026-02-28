@@ -40,6 +40,11 @@ adb shell am start -n com.example.scratchpad/.MainActivity -a com.example.scratc
 adb shell am start -n com.example.scratchpad/.MainActivity -a com.example.scratchpad.ABOUT
 ```
 
+## Bugs I Know About / UX Improvements
+
+- **FAB covers last note**: When the note list is full-screen, the floating action button (+) can cover the last note, making it difficult to tap. 
+  - **Workaround**: Edit any note so it moves to the top of the list, then you can access the covered note.
+
 ## Tech Stack
 
 - Kotlin
