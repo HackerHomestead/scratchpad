@@ -1,12 +1,31 @@
 package com.example.scratchpad
 
+import android.content.ContentValues
 import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,6 +65,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?, noteDao: com.example.scratchpad.data.NoteDao) {
+        // Check for share intent
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!sharedText.isNullOrBlank()) {
+                handleShareIntent(sharedText, noteDao)
+                return
+            }
+        }
+        
         // Check for base64 data (ADB import)
         val base64Data = intent?.getStringExtra("base64_data")
         if (base64Data != null) {
@@ -80,8 +108,36 @@ class MainActivity : ComponentActivity() {
                     try {
                         val notes = noteDao.getAllNotesOnce()
                         val json = notesToJson(notes)
-                        Toast.makeText(this@MainActivity, "Export: ${notes.size} notes ready (output to log)", Toast.LENGTH_SHORT).show()
-                        android.util.Log.d("SCRATCHPAD_EXPORT", json)
+                        
+                        val fileName = "scratchpad_backup_${System.currentTimeMillis()}.json"
+                        
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            val contentValues = ContentValues().apply {
+                                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                                put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                            }
+                            
+                            val uri = contentResolver.insert(
+                                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                contentValues
+                            )
+                            
+                            uri?.let {
+                                contentResolver.openOutputStream(it)?.use { outputStream ->
+                                    outputStream.write(json.toByteArray())
+                                }
+                                Toast.makeText(this@MainActivity, "Backup saved: Downloads/$fileName", Toast.LENGTH_LONG).show()
+                            } ?: run {
+                                Toast.makeText(this@MainActivity, "Backup failed", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                            val file = java.io.File(downloadsDir, fileName)
+                            file.writeText(json)
+                            Toast.makeText(this@MainActivity, "Backup saved: Downloads/$fileName", Toast.LENGTH_LONG).show()
+                        }
                     } catch (e: Exception) {
                         Toast.makeText(this@MainActivity, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
@@ -156,6 +212,70 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this@MainActivity, "Imported ${notes.size} notes", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun handleShareIntent(sharedContent: String, noteDao: com.example.scratchpad.data.NoteDao) {
+        coroutineScope.launch {
+            try {
+                val noteCount = noteDao.getNoteCount()
+                val defaultTitle = "Note ${noteCount + 1}"
+                
+                runOnUiThread {
+                    showTitleDialog(defaultTitle) { title ->
+                        coroutineScope.launch {
+                            val newNote = Note(
+                                title = title.ifBlank { defaultTitle },
+                                content = sharedContent,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            noteDao.insertNote(newNote)
+                            Toast.makeText(this@MainActivity, "Note saved: $title", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showTitleDialog(defaultTitle: String, onTitleSelected: (String) -> Unit) {
+        var title by mutableStateOf(defaultTitle)
+        
+        setContent {
+            ScratchpadTheme {
+                AlertDialog(
+                    onDismissRequest = { },
+                    title = { Text("Save Shared Text", color = Color.Green) },
+                    text = {
+                        Column {
+                            Text(
+                                text = "Enter a title for the new note:",
+                                style = TextStyle(color = Color.Green)
+                            )
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it.uppercase() },
+                                textStyle = TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color.Green
+                                ),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { onTitleSelected(title.ifBlank { defaultTitle }) }) {
+                            Text("Save", color = Color.Green)
+                        }
+                    },
+                    containerColor = Color.Black,
+                    titleContentColor = Color.Green,
+                    textContentColor = Color.Green
+                )
             }
         }
     }
